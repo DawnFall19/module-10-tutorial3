@@ -45,7 +45,9 @@ pub struct Chat {
     _producer: Box<dyn Bridge<EventBus>>,
     wss: WebsocketService,
     messages: Vec<MessageData>,
+    username: String,
 }
+
 impl Component for Chat {
     type Message = Msg;
     type Properties = ();
@@ -77,6 +79,7 @@ impl Component for Chat {
             messages: vec![],
             chat_input: NodeRef::default(),
             wss,
+            username,
             _producer: EventBus::bridge(ctx.link().callback(Msg::HandleMsg)),
         }
     }
@@ -134,6 +137,7 @@ impl Component for Chat {
             }
         }
     }
+
     fn view(&self, ctx: &Context<Self>) -> Html {
         let submit = ctx.link().callback(|_| Msg::SubmitMessage);
         html! {
@@ -165,25 +169,61 @@ impl Component for Chat {
                     <div class="w-full grow overflow-auto border-b-2 border-gray-300">
                         {
                             self.messages.iter().map(|m| {
-                                let user = self.users.iter().find(|u| u.name == m.from).unwrap();
-                                html!{
-                                    <div class="flex items-end w-3/6 bg-gray-100 m-8 rounded-tl-lg rounded-tr-lg rounded-br-lg ">
-                                        <img class="w-8 h-8 rounded-full m-3" src={user.avatar.clone()} alt="avatar"/>
-                                        <div class="p-3">
-                                            <div class="text-sm">
-                                                {m.from.clone()}
-                                            </div>
-                                            <div class="text-xs text-gray-500">
-                                                if m.message.ends_with(".gif") {
-                                                    <img class="mt-3" src={m.message.clone()}/>
-                                                } else {
-                                                    {m.message.clone()}
-                                                }
+                                let is_self = m.from == self.username;
+                            let user = self.users.iter().find(|u| u.name == m.from);
+                            if let Some(user) = user {
+                                let message_bubble = if m.message.ends_with(".gif") {
+                                    html! { <img class="mt-3" src={m.message.clone()}/> }
+                                } else {
+                                    html! { <span>{m.message.clone()}</span> }
+                                };
+
+
+                                html! {
+                                    <div class={classes!(
+                                            "flex",
+                                            "items-end",
+                                            "m-4",
+                                            "max-w-xl",
+                                            if is_self {
+                                                vec!["ml-auto", "justify-end"]
+                                            } else {
+                                                vec!["justify-start"]
+                                            }
+                                        )}>
+                                        { if !is_self {
+                                            html! {
+                                                <img class="w-8 h-8 rounded-full mr-2" src={user.avatar.clone()} alt="avatar"/>
+                                            }
+                                        } else {
+                                            html! {}
+                                        }}
+                                        <div class={classes!(
+                                            "p-3", "rounded-lg",
+                                            if is_self {
+                                                vec!["bg-blue-100", "text-right", "rounded-br-none"]
+                                            } else {
+                                                vec!["bg-gray-100", "text-left", "rounded-bl-none"]
+                                            }
+                                        )}>
+                                            <div class="text-sm font-semibold">{ &m.from }</div>
+                                            <div class="text-xs text-gray-600 mt-1">
+                                                { message_bubble }
                                             </div>
                                         </div>
+                                        { if is_self {
+                                            html! {
+                                                <img class="w-8 h-8 rounded-full ml-2" src={user.avatar.clone()} alt="avatar"/>
+                                            }
+                                        } else {
+                                            html! {}
+                                        }}
                                     </div>
                                 }
-                            }).collect::<Html>()
+                            } else {
+                                html! {}
+                            }
+                        }).collect::<Html>()
                         }
 
                     </div>
